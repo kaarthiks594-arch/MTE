@@ -44,7 +44,7 @@ ken_df = load_ken()
 # ---------------------------------------------------
 # UI
 # ---------------------------------------------------
-st.title("🔢 MTE Calculator")
+st.title(" MTE Calculator")
 
 equipment_code = st.text_input("Equipment Code")
 module_name = st.selectbox(
