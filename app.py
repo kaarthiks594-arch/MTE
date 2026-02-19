@@ -3,9 +3,7 @@ import pandas as pd
 
 st.set_page_config(page_title="MTE Calculator", layout="wide")
 
-# ---------------------------------
-# LOAD DATABASE (DB.xlsx)
-# ---------------------------------
+
 @st.cache_data
 def load_db():
     xls = pd.ExcelFile("DB.xlsx")
