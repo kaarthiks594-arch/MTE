@@ -1,43 +1,87 @@
 import streamlit as st
 import pandas as pd
 
-uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
-
-if uploaded_file is not None:
-    df = pd.read_excel(uploaded_file)
-    st.success("File loaded successfully!")
-else:
-    st.stop()
+st.set_page_config(page_title="MTE Calculator", layout="wide")
 
 st.title("MTE Calculator")
 
-# -----------------------------
-# STEP 1: Select Model
-# -----------------------------
-models = sorted(df["Model"].dropna().unique())
+# =========================
+# LOAD DATA
+# =========================
+
+@st.cache_data
+def load_data():
+    df = pd.read_excel("ken_DATA.xlsx")  # change to DB.xlsx if needed
+    
+    # Clean column names
+    df.columns = df.columns.str.strip()
+    
+    return df
+
+try:
+    df = load_data()
+except Exception as e:
+    st.error("Error loading Excel file.")
+    st.stop()
+
+# =========================
+# CHECK REQUIRED COLUMNS
+# =========================
+
+st.write("Available Columns in Excel:", df.columns.tolist())
+
+#  Change these names if needed to match your Excel exactly
+MODEL_COL = "Model"
+SUBMODEL_COL = "SubModel"
+VARIANT_COL = "Variant"
+
+if MODEL_COL not in df.columns:
+    st.error(f"Column '{MODEL_COL}' not found in Excel.")
+    st.stop()
+
+# =========================
+# MODEL SELECTION
+# =========================
+
+models = sorted(df[MODEL_COL].dropna().unique())
+
 selected_model = st.selectbox("Select Model", models)
 
-# -----------------------------
-# STEP 2: Select Sub Model
-# -----------------------------
-if selected_model:
-    sub_df = df[df["Model"] == selected_model]
-    sub_models = sorted(sub_df["Sub Model"].dropna().unique())
+# =========================
+# SUB MODEL SELECTION
+# =========================
 
-    selected_sub_model = st.selectbox("Select Sub Model", sub_models)
+filtered_model_df = df[df[MODEL_COL] == selected_model]
 
-# -----------------------------
-# STEP 3: Select Variant
-# -----------------------------
-if selected_sub_model:
-    variant_df = sub_df[sub_df["Sub Model"] == selected_sub_model]
-    variants = sorted(variant_df["Variant"].dropna().unique())
+if SUBMODEL_COL in df.columns:
+    submodels = sorted(filtered_model_df[SUBMODEL_COL].dropna().unique())
+    
+    selected_submodel = st.selectbox("Select Sub Model", submodels)
+    
+    filtered_sub_df = filtered_model_df[
+        filtered_model_df[SUBMODEL_COL] == selected_submodel
+    ]
+else:
+    filtered_sub_df = filtered_model_df
 
+# =========================
+# VARIANT SELECTION
+# =========================
+
+if VARIANT_COL in df.columns:
+    variants = sorted(filtered_sub_df[VARIANT_COL].dropna().unique())
+    
     selected_variant = st.selectbox("Select Variant", variants)
+    
+    final_df = filtered_sub_df[
+        filtered_sub_df[VARIANT_COL] == selected_variant
+    ]
+else:
+    final_df = filtered_sub_df
 
-# -----------------------------
+# =========================
 # RESULT
-# -----------------------------
-if selected_variant:
-    result_df = variant_df[variant_df["Variant"] == selected_variant]
-    st.dataframe(result_df)
+# =========================
+
+st.subheader("Filtered Result")
+st.dataframe(final_df, use_container_width=True)
