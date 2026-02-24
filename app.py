@@ -1,14 +1,13 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="MTE Calculator", layout="wide")
+uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
 
-# Load your data
-@st.cache_data
-def load_data():
-    return pd.read_excel("DB.xlsx")
-
-df = load_data()
+if uploaded_file is not None:
+    df = pd.read_excel(uploaded_file)
+    st.success("File loaded successfully!")
+else:
+    st.stop()
 
 st.title("MTE Calculator")
 
