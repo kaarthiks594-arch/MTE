@@ -1,89 +1,44 @@
 import streamlit as st
-from services.mte_service import *
-from utils.auth import check_login
+import pandas as pd
 
 st.set_page_config(page_title="MTE Calculator", layout="wide")
 
-# 🔐 Login Protection
-check_login()
+# Load your data
+@st.cache_data
+def load_data():
+    return pd.read_excel("your_file.xlsx")
+
+df = load_data()
 
 st.title("MTE Calculator")
 
-# Load Excel Data
-ken, db = load_data()
+# -----------------------------
+# STEP 1: Select Model
+# -----------------------------
+models = sorted(df["Model"].dropna().unique())
+selected_model = st.selectbox("Select Model", models)
 
 # -----------------------------
-# Step 1: Equipment + Module
+# STEP 2: Select Sub Model
 # -----------------------------
+if selected_model:
+    sub_df = df[df["Model"] == selected_model]
+    sub_models = sorted(sub_df["Sub Model"].dropna().unique())
 
-col1, col2 = st.columns(2)
-
-with col1:
-    equipment_no = st.text_input("Enter Equipment No")
-
-with col2:
-    module_name = st.text_input("Enter Module Name")
-
-if st.button("Search"):
-
-    model_name = find_model(ken, equipment_no, module_name)
-
-    if not model_name:
-        st.error("No matching Equipment or Module found")
-        st.stop()
-
-    st.success(f"Model Found: {model_name}")
-    st.session_state["model_name"] = model_name
+    selected_sub_model = st.selectbox("Select Sub Model", sub_models)
 
 # -----------------------------
-# Step 2: Main Model Selection
+# STEP 3: Select Variant
 # -----------------------------
+if selected_sub_model:
+    variant_df = sub_df[sub_df["Sub Model"] == selected_sub_model]
+    variants = sorted(variant_df["Variant"].dropna().unique())
 
-if "model_name" in st.session_state:
+    selected_variant = st.selectbox("Select Variant", variants)
 
-    model_name = st.session_state["model_name"]
-
-    main_models = get_main_models(db, model_name)
-
-    selected_main = st.selectbox("Select Main Model", main_models)
-
-    # -----------------------------
-    # Step 3: Sub Model Selection
-    # -----------------------------
-
-    sub_models = get_sub_models(db, model_name, selected_main)
-
-    selected_sub = st.selectbox("Select Sub Model", sub_models)
-
-    # -----------------------------
-    # Step 4: Variant Selection
-    # -----------------------------
-
-    variants = get_variants(db, model_name, selected_sub)
-
-    selected_variants = st.multiselect("Select Variants", variants)
-
-    # -----------------------------
-    # Step 5: Calculate
-    # -----------------------------
-
-    if st.button("Calculate MTE"):
-
-        if not selected_variants:
-            st.warning("Please select at least one variant")
-        else:
-            overall_mte = calculate_mte(
-                db,
-                model_name,
-                selected_sub,
-                selected_variants
-            )
-
-            st.success("MTE Calculation Result")
-
-            st.write("### Summary")
-            st.write(f"Model: {model_name}")
-            st.write(f"Main Model: {selected_main}")
-            st.write(f"Sub Model: {selected_sub}")
-            st.write(f"Selected Variants: {selected_variants}")
-            st.write(f"Overall MTE: {overall_mte}")
+# -----------------------------
+# RESULT
+# -----------------------------
+if selected_variant:
+    result_df = variant_df[variant_df["Variant"] == selected_variant]
+    st.dataframe(result_df)
