@@ -3,103 +3,95 @@ import pandas as pd
 
 st.set_page_config(page_title="MTE Calculator", layout="centered")
 
-# ---------------------------------------------------
-# LOAD DATABASE FILES
-# ---------------------------------------------------
+# =====================================================
+# LOAD DATABASE (DB1.xlsx)
+# =====================================================
 @st.cache_data
 def load_db():
-    try:
-        xls = pd.ExcelFile("DB1.xlsx")
+    modules_df = pd.read_excel("DB1.xlsx", sheet_name="modules")
+    models_df = pd.read_excel("DB1.xlsx", sheet_name="models")
+    variants_df = pd.read_excel("DB1.xlsx", sheet_name="variants")
 
-        modules_df = pd.read_excel(xls, sheet_name="modules")
-        models_df = pd.read_excel(xls, sheet_name="models")
-        variants_df = pd.read_excel(xls, sheet_name="variants")
+    # Clean text columns
+    for df in [modules_df, models_df, variants_df]:
+        for col in df.columns:
+            df[col] = df[col].astype(str).str.strip()
 
-        # Clean text
-        for df in [modules_df, models_df, variants_df]:
-            df.columns = df.columns.str.strip()
-            for col in df.columns:
-                df[col] = df[col].astype(str).str.strip()
+    # Convert MTE to numeric
+    variants_df["MTE"] = pd.to_numeric(variants_df["MTE"], errors="coerce")
 
-        variants_df["MTE"] = pd.to_numeric(variants_df["MTE"], errors="coerce").fillna(0)
-
-        return modules_df, models_df, variants_df
-
-    except Exception as e:
-        st.error("Error loading DB1.xlsx")
-        return None, None, None
+    return modules_df, models_df, variants_df
 
 
+# =====================================================
+# LOAD EQUIPMENT DATABASE (ken_DATA.xlsx)
+# =====================================================
 @st.cache_data
 def load_ken():
-    try:
-        df = pd.read_excel("ken_DATA.xlsx")
-        df.columns = df.columns.str.strip()
-        df["Equipment Code"] = df["Equipment Code"].astype(str).str.strip()
-        return df
-    except:
-        st.error("Error loading ken_DATA.xlsx")
-        return None
+    df = pd.read_excel("ken_DATA.xlsx")
+    df.columns = df.columns.str.strip()  # remove hidden spaces
+    df["Equipment Code"] = df["Equipment Code"].astype(str).str.strip()
+    return df
 
 
 modules_df, models_df, variants_df = load_db()
 ken_df = load_ken()
 
-if modules_df is None or ken_df is None:
-    st.stop()
-
-# ---------------------------------------------------
+# =====================================================
 # UI
-# ---------------------------------------------------
+# =====================================================
 st.title(" MTE Calculator")
 
 equipment_code = st.text_input("Enter Equipment Code")
 
-# Module dropdown from DB1 modules sheet
 module_name = st.selectbox(
     "Select Module",
-    modules_df["module_name"].tolist()
+    modules_df["module_name"].unique()
 )
 
-# ---------------------------------------------------
-# SEARCH
-# ---------------------------------------------------
+# =====================================================
+# SEARCH BUTTON
+# =====================================================
 if st.button("Search"):
 
     if not equipment_code:
-        st.error("Please enter equipment code")
+        st.error("Please enter Equipment Code")
         st.stop()
 
-    row = ken_df[ken_df["Equipment Code"] == equipment_code.strip()]
+    equipment_code = equipment_code.strip()
 
-    if row.empty:
-        st.error("Equipment not found in ken_DATA.xlsx")
+    # Check equipment exists
+    equipment_row = ken_df[ken_df["Equipment Code"] == equipment_code]
+
+    if equipment_row.empty:
+        st.error("Equipment Code not found")
         st.stop()
 
-    # Check if selected module column exists in ken_DATA
+    # IMPORTANT:
+    # Module column name in ken_DATA must match module_name exactly
     if module_name not in ken_df.columns:
         st.error(f"Column '{module_name}' not found in ken_DATA.xlsx")
+        st.write("Available columns:", list(ken_df.columns))
         st.stop()
 
-    model_name = str(row.iloc[0][module_name]).strip()
+    model_name = str(equipment_row.iloc[0][module_name]).strip()
 
     if model_name.lower() == "nan" or model_name == "":
-        st.error("No model found for selected module")
+        st.error("No model found for this module")
         st.stop()
 
-    # Save in session
-    st.session_state["model_name"] = model_name
     st.session_state["module_name"] = module_name
+    st.session_state["model_name"] = model_name
 
     st.success(f"Model Found: {model_name}")
 
-# ---------------------------------------------------
+# =====================================================
 # SHOW VARIANTS
-# ---------------------------------------------------
+# =====================================================
 if "model_name" in st.session_state:
 
-    model_name = st.session_state["model_name"]
     module_name = st.session_state["module_name"]
+    model_name = st.session_state["model_name"]
 
     # Get module_id
     module_row = modules_df[
@@ -136,7 +128,7 @@ if "model_name" in st.session_state:
     st.subheader("Select Variants")
 
     selected_variants = st.multiselect(
-        "Variants",
+        "Choose variants",
         model_variants["variant_name"].tolist()
     )
 
@@ -148,14 +140,7 @@ if "model_name" in st.session_state:
     with col2:
         clear = st.button("Clear")
 
-    # ---------------------------------------------------
-    # CALCULATE
-    # ---------------------------------------------------
-    if calculate:
-
-        if not selected_variants:
-            st.warning("Please select at least one variant")
-            st.stop()
+    if calculate and selected_variants:
 
         selected_rows = model_variants[
             model_variants["variant_name"].isin(selected_variants)
@@ -166,14 +151,14 @@ if "model_name" in st.session_state:
         st.markdown("---")
         st.subheader("Result")
 
-        st.write(f"**Module:** {module_name}")
-        st.write(f"**Model:** {model_name}")
+        st.write(f"**Module Name:** {module_name}")
+        st.write(f"**Model Name:** {model_name}")
 
         st.write("**Selected Variants:**")
         for _, row in selected_rows.iterrows():
             st.write(f"- {row['variant_name']} ({row['MTE']})")
 
-        st.success(f"Total MTE: {total_mte}")
+        st.success(f"Overall MTE: {total_mte}")
 
     if clear:
         st.session_state.clear()
