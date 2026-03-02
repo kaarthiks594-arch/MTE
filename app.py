@@ -51,7 +51,7 @@ if modules_df is None or ken_df is None:
 # ---------------------------------------------------
 # UI
 # ---------------------------------------------------
-st.title("🔢 MTE Calculator")
+st.title(" MTE Calculator")
 
 equipment_code = st.text_input("Enter Equipment Code")
 
